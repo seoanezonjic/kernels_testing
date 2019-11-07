@@ -1,0 +1,22 @@
+generate_kernel_$kernels2exec){
+	. ~soft_bio_267/initializes/init_netanalyzer
+	LAYERS='m,-'
+	?
+	NetAnalyzer.rb -i $mat_folder/$working_mat -f bin -l $LAYERS -k (*) -u 'm' -n $mat_folder'/'$working_mat.lst -K $working_mat
+}
+
+do_unbiased_evaluation_$kernels2exec){
+	. ~soft_bio_267/initializes/init_netanalyzer
+	export PATH=$scripts_path:$PATH
+	export PATH=~pedro/dev_gems/NetAnalyzer/bin:$PATH
+	text2binary_matrix.rb -i !generate_kernel_*!/$working_mat -O null -t bin -s > kernel_stats
+	?
+	prioritizer.rb -s $unbiased_group_seeds -n $mat_folder'/'$working_mat.lst -m !generate_kernel_*!/$working_mat -o results -e unb
+}
+
+collect_results){
+	. ~soft_bio_267/initializes/init_netanalyzer
+	export PATH=~pedro/dev_gems/NetAnalyzer/bin:$PATH
+	?	
+	text2binary_matrix.rb -i $mat_folder'/'$working_mat -O null -t bin -s -d > matrix_stats
+}
