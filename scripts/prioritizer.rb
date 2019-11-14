@@ -2,6 +2,7 @@
 require 'optparse'
 require 'numo/narray'
 require 'numo/linalg'
+require 'npy'
 
 #require 'pp'
 
@@ -299,7 +300,8 @@ optparse.parse!
 dictionary_ids = load_dictionary(options[:id_conversion]) if !options[:id_conversion].nil?
 node_names = load_input_list(options[:axis_names_file])
 if options[:input_matrix_format] == 'bin'
-	score_matrix = Marshal.load(File.binread(options[:matrix_file]))
+	#score_matrix = Marshal.load(File.binread(options[:matrix_file]))
+	score_matrix = Npy.load(options[:matrix_file])
 elsif  options[:input_matrix_format] == 'text'
 	score_matrix = load_matrix_file(options[:matrix_file])
 end
