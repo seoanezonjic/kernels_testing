@@ -41,6 +41,10 @@ def median(array, already_sorted=false)
 	return res
 end
 
+def mean(array)
+	return array.inject{ |sum, el| sum + el }.to_f / array.size
+end
+
 # I/O 
 #------------------------------------------------------------------------------
 def load_matrix_file(input_file, splitChar = "\t")
@@ -206,10 +210,11 @@ def get_TPR(ranks, universe_length, threshold = 0.1)
 	return (num_uppers*100 / ranks.length)
 end
 
-def compute_unbiased_way_metrics(target_ranks, item_number)
+def compute_unbiased_way_metrics(target_ranks, item_number,targets_size)
 	pos_ratio = target_ranks.map{|rank| rank*100/item_number} # Calculate ratio of each rank
 	metrics = {}
 	metrics['median'] = median(pos_ratio).round(2)
+	metrics['mean'] = mean(pos_ratio).round(2)
 	metrics['std']    = pos_ratio.standard_deviation.round(2)
 	metrics['lowest'] = pos_ratio.max.round(2)
 	metrics['auc'] = get_auc_from_ranked_targets(target_ranks, item_number)
@@ -220,6 +225,10 @@ def compute_unbiased_way_metrics(target_ranks, item_number)
 	metrics['tpr15']  = get_TPR(target_ranks, item_number, 0.15).round(1)
 	metrics['tpr20']  = get_TPR(target_ranks, item_number, 0.20).round(1)
 	metrics['tpr30']  = get_TPR(target_ranks, item_number, 0.30).round(1)
+	metrics['Ranked_items'] = target_ranks.length
+	metrics['Target_items'] = targets_size
+	metrics['Total_items'] = item_number
+	metrics['Ranked_ratio'] = target_ranks.length / targets_size * 100
 	return metrics
 end
 
@@ -297,7 +306,7 @@ optparse.parse!
 ##############################################################################
 ## MAIN
 ##############################################################################
-dictionary_ids = load_dictionary(options[:id_conversion]) if !options[:id_conversion].nil?
+dictionary_ids = load_dictionary(options[:id_conversion]) if !options[:id_conversion].nil? & !options[:id_conversion].empty?
 node_names = load_input_list(options[:axis_names_file])
 if options[:input_matrix_format] == 'bin'
 	#score_matrix = Marshal.load(File.binread(options[:matrix_file]))
@@ -307,7 +316,10 @@ elsif  options[:input_matrix_format] == 'text'
 end
 if !options[:evaluation_mode].nil?
 	seed_groups = load_seed_groups(options[:seed_file]) #[[group_id, [seed_ids]]]
-	seed_groups.map!{|sg| [sg[0], convert_ids(sg[1], dictionary_ids).uniq] } if !options[:id_conversion].nil?
+	seeds_length = seed_groups.length
+	if !options[:id_conversion].nil? & !options[:id_conversion].empty?
+		seed_groups.map!{|sg| [sg[0], convert_ids(sg[1], dictionary_ids).uniq] } if !options[:id_conversion].nil?
+	end
 	seed_groups.map!{|sg| [sg[0], sg[1].map{|seed_name| node_names.index(seed_name)}.compact]} # Tranform IDs to Matrix coordinates
 	if options[:evaluation_mode] == 'cla'
 		output_data = evaluate_priotirizer_classic_way(score_matrix, seed_groups)
@@ -317,7 +329,7 @@ if !options[:evaluation_mode].nil?
 		if ranked_targets.empty?
 			raise 'ERROR: Any TARGET (from seeds) have been found' 
 		else		
-			output_data = compute_unbiased_way_metrics(ranked_targets, node_names.length).to_a
+			output_data = compute_unbiased_way_metrics(ranked_targets, node_names.length, seeds_length).to_a
 		end
 	end
 else
