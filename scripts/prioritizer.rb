@@ -20,6 +20,16 @@ module Enumerable
       return self.sum.fdiv(self.length)
     end
 
+    def median
+    	res = nil
+    	if !self.empty?
+	    	sorted_arr = self.sort 
+	    	m_pos = self.size / 2 
+	    	res = self.size % 2 == 1 ? sorted_arr[m_pos] : sorted_arr[m_pos-1..m_pos].mean
+	    end
+	    return res
+    end
+
     def sample_variance
       m = self.mean
       sum = self.inject(0){|accum, i| accum +(i-m)**2 }
@@ -31,15 +41,6 @@ module Enumerable
     end
 end
 
-def median(array, already_sorted=false)
-	res = nil
-	if !array.empty?
-		array = array.sort unless already_sorted
-		m_pos = array.size / 2
-		res = array.size % 2 == 1 ? array[m_pos] : array[m_pos-1..m_pos].mean
-	end
-	return res
-end
 
 
 # I/O 
@@ -210,7 +211,7 @@ end
 def compute_unbiased_way_metrics(target_ranks, item_number,targets_size)
 	pos_ratio = target_ranks.map{|rank| rank*100/item_number} # Calculate ratio of each rank
 	metrics = {}
-	metrics['median'] = median(pos_ratio).round(2)
+	metrics['median'] = pos_ratio.median.round(2)
 	metrics['mean'] = pos_ratio.mean.round(2)
 	metrics['std']    = pos_ratio.standard_deviation.round(2)
 	metrics['lowest'] = pos_ratio.max.round(2)
