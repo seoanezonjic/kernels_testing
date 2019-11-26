@@ -41,9 +41,6 @@ def median(array, already_sorted=false)
 	return res
 end
 
-def mean(array)
-	return array.inject{ |sum, el| sum + el }.to_f / array.size
-end
 
 # I/O 
 #------------------------------------------------------------------------------
@@ -214,7 +211,7 @@ def compute_unbiased_way_metrics(target_ranks, item_number,targets_size)
 	pos_ratio = target_ranks.map{|rank| rank*100/item_number} # Calculate ratio of each rank
 	metrics = {}
 	metrics['median'] = median(pos_ratio).round(2)
-	metrics['mean'] = mean(pos_ratio).round(2)
+	metrics['mean'] = pos_ratio.mean.round(2)
 	metrics['std']    = pos_ratio.standard_deviation.round(2)
 	metrics['lowest'] = pos_ratio.max.round(2)
 	metrics['auc'] = get_auc_from_ranked_targets(target_ranks, item_number)
@@ -306,7 +303,7 @@ optparse.parse!
 ##############################################################################
 ## MAIN
 ##############################################################################
-dictionary_ids = load_dictionary(options[:id_conversion]) if !options[:id_conversion].nil? & !options[:id_conversion].empty?
+dictionary_ids = load_dictionary(options[:id_conversion]) if !options[:id_conversion].nil?
 node_names = load_input_list(options[:axis_names_file])
 if options[:input_matrix_format] == 'bin'
 	#score_matrix = Marshal.load(File.binread(options[:matrix_file]))
@@ -317,9 +314,7 @@ end
 if !options[:evaluation_mode].nil?
 	seed_groups = load_seed_groups(options[:seed_file]) #[[group_id, [seed_ids]]]
 	seeds_length = seed_groups.length
-	if !options[:id_conversion].nil? & !options[:id_conversion].empty?
-		seed_groups.map!{|sg| [sg[0], convert_ids(sg[1], dictionary_ids).uniq] } if !options[:id_conversion].nil?
-	end
+	seed_groups.map!{|sg| [sg[0], convert_ids(sg[1], dictionary_ids).uniq] } if !options[:id_conversion].nil?
 	seed_groups.map!{|sg| [sg[0], sg[1].map{|seed_name| node_names.index(seed_name)}.compact]} # Tranform IDs to Matrix coordinates
 	if options[:evaluation_mode] == 'cla'
 		output_data = evaluate_priotirizer_classic_way(score_matrix, seed_groups)
