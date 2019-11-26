@@ -131,7 +131,7 @@ def get_rank_percentage_for_member(score_matrix, seed_cols, test_member)
 	score_list.each do |score|
 		members_below_test += 1 if score > ref_score 
 	end
-	return members_below_test.fdiv(score_list.rows - 1)
+	return members_below_test.fdiv(score_list.shape.first - 1)
 end
 
 def evaluate_priotirizer_classic_way(score_matrix, gr_seed_cols)
