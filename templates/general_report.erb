@@ -1,12 +1,28 @@
 <%
 	KERNEL=2
-	matrix_metrics = @hash_vars['classic_metric_table']
+	if !@hash_vars['classic_metric_table'].nil?
+		matrix_metrics = @hash_vars['classic_metric_table']
+	elsif !@hash_vars['unbiased_metric_table'].nil?
+		matrix_metrics = @hash_vars['unbiased_metric_table']
+	else
+		abort("Metric table not defined")
+	end
+
+	if !@hash_vars['unbiased_prior_metric_table'].nil?
+		prior_metrics = @hash_vars['unbiased_prior_metric_table']
+		header_prior = prior_metrics.first
+	end
+
+
 	header = matrix_metrics.first
 	source_metrics = matrix_metrics.select{|record| record[KERNEL] == 'mat'}
 	source_metrics.unshift(header)
 	kernel_metrics = matrix_metrics.select{|record| record[KERNEL] != 'mat'}
+
+	@hash_vars['all_metrics'] = matrix_metrics
 	@hash_vars['source_metrics'] = source_metrics
 	@hash_vars['kernel_metrics'] = kernel_metrics
+	@hash_vars['prior_metrics'] = prior_metrics
 %>
 <div style="width:90%; background-color:#ecf0f1; margin:0 auto;">
 	<h1 style="text-align:center; background-color:#d6eaf8 ">Kernel Study</h1>
@@ -28,7 +44,7 @@
 		%>
 		<%=
 			table(id: 'source_metrics', text: true,
-				fields: [0].concat(%w[Matrix_Symmetric? Matrix_Dimensions Matrix_Non_Zero_Density Weigth_Average_Non_Zero].map{|f| header.index(f)})
+				fields: [0].concat(%w[Matrix_Dimensions Matrix_Non_Zero_Density Weigth_Average_Non_Zero].map{|f| header.index(f)})
 				) 
 		%>
 	</div>
@@ -36,31 +52,60 @@
 	<div style="overflow: hidden">
 		<%=
 			fields = %w[Weigth_Max Weigth_Min Weigth_Q1 Weigth_Average Weigth_Median Weigth_Q3]
-			line(id: 'source_metrics', 
-				header: true, row_names: true,
-				height: '600px', width: '600px',
-				responsive: false,
-				fields: [0].concat(fields.map{|f| header.index(f)}),
-				title: "Source weigths (with zero values)",
-				x_label: 'Weigth value',
-				config: {
-					'graphOrientation' => 'vertical'
-					}
-				)
+			if @hash_vars['source_metrics'].length-1 > 1 # Minus one because of header
+				line(id: 'source_metrics', 
+					header: true, row_names: true,
+					height: '600px', width: '600px',
+					responsive: false,
+					fields: [0].concat(fields.map{|f| header.index(f)}),
+					title: "Source weigths (with zero values)",
+					x_label: 'Weigth value',
+					config: {
+						'graphOrientation' => 'vertical'
+						}
+					)
+			elsif @hash_vars['source_metrics'].length-1 == 1
+				barplot(id: 'source_metrics', 
+					header: true, row_names: true,
+					height: '600px', width: '600px',
+					responsive: false,
+					fields: [0].concat(fields.map{|f| header.index(f)}),
+					title: "Source weigths (with zero values)",
+					x_label: 'Weigth value',
+					config: {
+						'graphOrientation' => 'vertical'
+						}
+					)
+			end
 		%>
 		<%=
 			fields = %w[Weigth_Max Weigth_Min_Non_Zero Weigth_Q1_Non_Zero Weigth_Average_Non_Zero Weigth_Median_Non_Zero Weigth_Q3_Non_Zero]
-			line(id: 'source_metrics', 
-				header: true, row_names: true,
-				height: '600px', width: '600px',
-				responsive: false,
-				fields: [0].concat(fields.map{|f| header.index(f)}),
-				title: "Source weigths (with NO zero values)",
-				x_label: 'Weigth value',
-				config: {
-					'graphOrientation' => 'vertical'
-					}
-				)
+			if @hash_vars['source_metrics'].length-1 > 1 # Minus one because of header
+				line(id: 'source_metrics', 
+					header: true, row_names: true,
+					height: '600px', width: '600px',
+					responsive: false,
+					fields: [0].concat(fields.map{|f| header.index(f)}),
+					title: "Source weigths (with NO zero values)",
+					x_label: 'Weigth value',
+					config: {
+						'graphOrientation' => 'vertical'
+						}
+					)
+			elsif @hash_vars['source_metrics'].length-1 == 1
+				barplot(id: 'source_metrics', 
+					header: true, row_names: true,
+					height: '600px', width: '600px',
+					responsive: false,
+					fields: [0].concat(fields.map{|f| header.index(f)}),
+					title: "Source weigths (with NO zero values)",
+					x_label: 'Weigth value',
+					config: {
+						'graphOrientation' => 'vertical'
+						}
+					)
+			end
+
 		%>
 
 	</div>
@@ -69,31 +114,61 @@
 	<div style="overflow: hidden">
 		<%=
 			fields = %w[Edges_Max Edges_Min Edges_Q1 Edges_Average Edges_Median Edges_Q3]
-			line(id: 'source_metrics', 
-				header: true, row_names: true,
-				height: '600px', width: '600px',
-				responsive: false,
-				fields: [0].concat(fields.map{|f| header.index(f)}),
-				title: "Edges per node (with zero values)",
-				x_label: 'Edges number',
-				config: {
-					'graphOrientation' => 'vertical'
-					}
-				)
+			if @hash_vars['source_metrics'].length-1 > 1 # Minus one because of header
+				line(id: 'source_metrics', 
+					header: true, row_names: true,
+					height: '600px', width: '600px',
+					responsive: false,
+					fields: [0].concat(fields.map{|f| header.index(f)}),
+					title: "Edges per node (with zero values)",
+					x_label: 'Edges number',
+					config: {
+						'graphOrientation' => 'vertical'
+						}
+					)
+			elsif @hash_vars['source_metrics'].length-1 == 1
+				barplot(id: 'source_metrics', 
+					header: true, row_names: true,
+					height: '600px', width: '600px',
+					responsive: false,
+					fields: [0].concat(fields.map{|f| header.index(f)}),
+					title: "Edges per node (with zero values)",
+					x_label: 'Edges number',
+					config: {
+						'graphOrientation' => 'vertical'
+						}
+					)
+			end
+			
 		%>
 		<%=
 			fields = %w[Edges_Max Edges_Min_Non_Zero Edges_Q1_Non_Zero Edges_Average_Non_Zero Edges_Median_Non_Zero Edges_Q3_Non_Zero]
-			line(id: 'source_metrics', 
-				header: true, row_names: true,
-				height: '600px', width: '600px',
-				responsive: false,
-				fields: [0].concat(fields.map{|f| header.index(f)}),
-				title: "Edges per node (with NO zero values)",
-				x_label: 'Edges number',
-				config: {
-					'graphOrientation' => 'vertical'
-					}
-				)
+			if @hash_vars['source_metrics'].length-1 > 1 # Minus one because of header
+				line(id: 'source_metrics', 
+					header: true, row_names: true,
+					height: '600px', width: '600px',
+					responsive: false,
+					fields: [0].concat(fields.map{|f| header.index(f)}),
+					title: "Edges per node (with NO zero values)",
+					x_label: 'Edges number',
+					config: {
+						'graphOrientation' => 'vertical'
+						}
+					)
+			elsif @hash_vars['source_metrics'].length-1 == 1
+				barplot(id: 'source_metrics', 
+					header: true, row_names: true,
+					height: '600px', width: '600px',
+					responsive: false,
+					fields: [0].concat(fields.map{|f| header.index(f)}),
+					title: "Edges per node (with NO zero values)",
+					x_label: 'Edges number',
+					config: {
+						'graphOrientation' => 'vertical'
+						}
+					)
+			end
+
 		%>
 
 	</div>
@@ -116,7 +191,19 @@
 				)
 		%>
 		<%=
-			fields = %w[Matrix_Symmetric? Matrix_Dimensions Matrix_Non_Zero_Density]
+
+			fields = %w[Matrix_Non_Zero_Density]
+			barplot(id: 'all_metrics', 
+				header: true, row_names: true,
+				height: '600px', width: '800px',
+				responsive: false,
+				fields: [0].concat(fields.map{|f| header.index(f)}),
+				title: "Matrices Non-zero elements",
+				x_label: 'Non-zero elements (%)'
+				)
+		%>
+		<%=
+			fields = %w[Matrix_Dimensions Matrix_Non_Zero_Density]
 			table(id: 'kernel_metrics', text: true,
 				fields: [0].concat(fields.map{|f| header.index(f)})
 				) 
@@ -139,4 +226,28 @@
 		%>
 
 	</div>
+
+	<div style="overflow: hidden">
+
+		<%=
+			if !@hash_vars['unbiased_prior_metric_table'].nil?
+				table(id: 'prior_metrics', text: true) 
+			end
+		%>
+
+		<%=
+			if !@hash_vars['unbiased_prior_metric_table'].nil?
+				fields = %w[auc auc30]
+				barplot(id: 'prior_metrics', 
+					header: true, row_names: true,
+					height: '600px', width: '800px',
+					responsive: false,
+					fields: [0].concat(fields.map{|f| header_prior.index(f)}),
+					title: "Kernel prioritize results",
+					x_label: 'AUC'
+					)
+			end
+		%>
+	</div>
+
 </div>

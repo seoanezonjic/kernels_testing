@@ -1,4 +1,5 @@
 generate_kernel_$kernels2exec){
+	echo [cpu]
 	. ~soft_bio_267/initializes/init_netanalyzer
 	LAYERS='m,-'
 	?
@@ -6,17 +7,22 @@ generate_kernel_$kernels2exec){
 }
 
 do_unbiased_evaluation_$kernels2exec){
+	echo [cpu]
 	. ~soft_bio_267/initializes/init_netanalyzer
 	export PATH=$scripts_path:$PATH
-	export PATH=~pedro/dev_gems/NetAnalyzer/bin:$PATH
 	text2binary_matrix.rb -i !generate_kernel_*!/$working_mat -O null -t bin -s > kernel_stats
+	lines=`wc -l kernel_stats | cut -f 1 -d ' '`
+	yes "`echo -e '$working_mat_(*)\t$working_mat\t(*)'`" | head -n $lines | paste - kernel_stats | sed 's/- //g' | sed 's/ /_/g' >> ../metrics
 	?
 	prioritizer.rb -s $unbiased_group_seeds -n $mat_folder'/'$working_mat.lst -m !generate_kernel_*!/$working_mat -o results -e unb
+	lines=`wc -l results | cut -f 1 -d ' '`
+	yes "`echo -e '$working_mat_(*)\t$working_mat\t(*)'`" | head -n $lines | paste - results >> ../prior_metrics
 }
 
 collect_results){
 	. ~soft_bio_267/initializes/init_netanalyzer
-	export PATH=~pedro/dev_gems/NetAnalyzer/bin:$PATH
 	?	
 	text2binary_matrix.rb -i $mat_folder'/'$working_mat -O null -t bin -s -d > matrix_stats
+	lines=`wc -l matrix_stats | cut -f 1 -d ' '`
+	yes "`echo -e '$working_mat_mat\t$working_mat\tmat'`" | head -n $lines | paste - matrix_stats | sed 's/- //g' | sed 's/ /_/g' >> ../metrics
 }

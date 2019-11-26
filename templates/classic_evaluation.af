@@ -1,4 +1,5 @@
 generate_kernel_$kernels2exec){
+	echo [cpu]
 	. ~soft_bio_267/initializes/init_netanalyzer
 	LAYERS='m,-'
 	?
@@ -6,6 +7,7 @@ generate_kernel_$kernels2exec){
 }
 
 do_classic_evaluation_$kernels2exec){
+	echo [cpu]
 	. ~soft_bio_267/initializes/init_netanalyzer
 	export PATH=$scripts_path:$PATH
 	?
@@ -15,14 +17,15 @@ do_classic_evaluation_$kernels2exec){
 }
 
 eval_performance_$kernels2exec){
+	echo [cpu]
 	. ~soft_bio_267/initializes/init_R
 	export PATH=~pedro/dev_gems/NetAnalyzer/bin:$PATH
 	text2binary_matrix.rb -i !generate_kernel_*!/$working_mat -O null -t bin -s > kernel_stats
 	?
 	ROCanalysis.R -i !do_classic_evaluation_*!/dis_class_$working_mat -s rank -t tag -o result > auc
 	lines=`wc -l kernel_stats | cut -f 1 -d ' '`
-	yes "`echo -e '$working_mat_(*)\t$working_mat\t(*)'`" | head -n $lines | paste - kernel_stats | sed 's/- //g' | sed 's/ /_/g' >> ../metrics
-	echo -e '$working_mat_(*)\t$working_mat\t(*)\tAUC\t'`grep rank auc| sed 's/rank = //g'` >> ../metrics
+	yes "`echo -e '$working_mat_(*)\t$working_mat\t(*)'`" | head -n $lines | paste - kernel_stats | sed 's/- //g' | sed 's/ /_/g' >> ../cls_metrics
+	echo -e '$working_mat_(*)\t$working_mat\t(*)\tAUC\t'`grep rank auc| sed 's/rank = //g'` >> ../cls_metrics
 }
  
 collect_results){
@@ -31,5 +34,5 @@ collect_results){
 	?	
 	text2binary_matrix.rb -i $mat_folder'/'$working_mat -O null -t bin -s -d > matrix_stats
 	lines=`wc -l matrix_stats | cut -f 1 -d ' '`
-	yes "`echo -e '$working_mat_mat\t$working_mat\tmat'`" | head -n $lines | paste - matrix_stats | sed 's/- //g' | sed 's/ /_/g' >> ../metrics
+	yes "`echo -e '$working_mat_mat\t$working_mat\tmat'`" | head -n $lines | paste - matrix_stats | sed 's/- //g' | sed 's/ /_/g' >> ../cls_metrics
 }
