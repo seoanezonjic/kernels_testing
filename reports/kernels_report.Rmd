@@ -1,0 +1,293 @@
+---
+author: "Fernando Moreno Jabato"
+output: 
+  html_document:
+    df_print: paged
+    fig_width: 12
+---
+
+<style>
+    body .main-container {
+        max-width: 90%;
+    }
+</style>
+
+
+```{r setup, include=FALSE}
+################################################### Load necessary packages
+require(knitr)
+require(ggplot2)
+library(kableExtra)
+require(canvasXpress)
+require(stringr)
+
+################################################### Load necessary datasets
+
+# Load
+metrics <- data[[1]]
+  metrics[,1] <- as.character(metrics[,1])  # ID
+  metrics[,2] <- as.character(metrics[,2])  # Language
+  metrics[,3] <- as.numeric(metrics[,3])  # Size
+  metrics[,4] <- as.character(metrics[,4])  # Kernel
+  metrics[,5] <- as.character(metrics[,5])  # Feature
+  metrics[,6] <- as.character(metrics[,6])  # Value
+colnames(metrics) <- c("Exec","Language","Size","Kernel","Feature","Value")
+
+
+kernel_names <- data[[2]]
+  kernel_names[,1] <- as.character(kernel_names[,1]) # Kernel ID
+  kernel_names[,2] <- as.character(kernel_names[,2]) # Kernel Name
+colnames(kernel_names) <- c("Kernel","Name")
+
+# Take relevant info
+languages <- unique(metrics$Language)
+sizes <- unique(metrics$Size)
+kernels <- unique(metrics$Kernel)
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+```
+
+
+
+
+
+```{r transform_input, echo=FALSE}
+
+# Transform features to languages
+invisible(lapply(languages,function(lan){
+  metrics$Feature[grepl(paste(lan,"_",sep=""),metrics$Feature)] <<- lan
+}))
+
+
+# Find extra info
+indx_memo <- which(grepl("Maximum",metrics$Feature))
+indx_time <- which(grepl("Elapsed",metrics$Feature))
+indx_cpus <- which(grepl("Percent",metrics$Feature))
+# indx_matl <- which(grepl("Matlab",metrics$Feature))
+
+kern_diffs_bySize <- lapply(sizes,function(s){
+  kern_diffs <- lapply(kernels,function(k){
+    diff <- matrix(NaN,ncol = length(languages)+3, nrow = length(languages))
+    colnames(diff) <- c(languages,"Time","CPUs%","Memory")
+    rownames(diff) <- languages
+    indx_kernel <- which(metrics$Kernel == k & metrics$Size == s)
+    invisible(lapply(languages,function(x){
+      indx_x <- intersect(which(metrics$Language == x),indx_kernel)
+      invisible(lapply(languages,function(y){
+        indx_y <- which(metrics$Feature == y)
+        if(length(intersect(indx_x,indx_y))>0){
+          diff[x,y] <<- metrics$Value[intersect(indx_y,indx_x)[1]]
+          diff[y,x] <<- metrics$Value[intersect(indx_y,indx_x)[1]]        
+        }
+      }))
+      # Add time
+      aux = intersect(indx_x,indx_time)
+      if(length(aux)>0){
+        diff[x,"Time"] <<- metrics$Value[aux[1]]      
+      }
+      # Add CPU
+      aux = intersect(indx_x,indx_cpus)
+      if(length(aux)>0){
+        diff[x,"CPUs%"] <<- metrics$Value[aux[1]]     
+      }
+      # Add memory
+      aux = intersect(indx_x,indx_memo)
+      if(length(aux)>0){
+        diff[x,"Memory"] <<- metrics$Value[aux[1]]      
+      }
+    })) 
+    return(diff)
+  })
+  names(kern_diffs) <- kernels
+  return(kern_diffs)
+})
+
+# Add sizes info
+names(kern_diffs_bySize) <- sizes
+
+# Print in console
+# kern_diffs_bySize
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+```
+
+
+```{r exp_texts,echo=FALSE}
+# Sizes 
+out_siz <- unlist(lapply(sizes,function(names){paste("* ",names,sep="")}))
+# Languages
+out_lan <- unlist(lapply(languages,function(names){paste("* ",names,sep="")}))
+# Kernels
+out_ker <- unlist(lapply(seq(nrow(kernel_names)),function(i){paste("* (",kernel_names$Kernel[i],") ",kernel_names$Name[i],sep="")}))
+```
+
+
+
+# **Kernels benchmark esperiment**
+
+## **Used data**
+This resport contains results about different experiments using different kernel implementations over a double square symetric matrix of different sizes. In this case, **sizes** have been:
+
+`r paste(knit(text = paste(out_siz,collapse = "\n")),collapse = "\n")`
+
+These matrices have been kernelized using (`r length(kernels)`) different **kernel algorythms**:
+
+`r paste(knit(text = paste(out_ker,collapse = "\n")),collapse = "\n")`
+
+And all these kernels have been implemented using (`r length(languages)`) **programming languages**:
+
+`r paste(knit(text = paste(out_lan,collapse = "\n")),collapse = "\n")`
+
+
+## **Results**
+```{r show_results, echo = FALSE}
+# kable(metrics)
+metrics
+```
+
+
+```{r prepare_canvas, echo = FALSE}
+require(plyr)
+y <- as.data.frame(do.call(rbind,lapply(seq_along(kern_diffs_bySize),function(j){
+  curr_size <- names(kern_diffs_bySize)[j]
+  kern_values <- as.data.frame(do.call(cbind,lapply(seq_along(kern_diffs_bySize[[j]]),function(i){
+    #Load
+    kern_diffs <- kern_diffs_bySize[[j]]
+    kernel_name <- names(kern_diffs)[i]
+    values <- kern_diffs[[i]]
+    # Transform
+    values <- t(values)
+    colnames(values) <- paste(colnames(values),kernel_name,sep="_")
+    # Special cases
+    if("CPUs%" %in% rownames(values)){
+      values["CPUs%",] <- gsub("%","",values["CPUs%",])
+    }
+    if("Time" %in% rownames(values)){
+      values["Time",] <- unlist(lapply(values["Time",],function(time){
+        if(str_count(time,":") == 1){
+          return(paste("0:",time,sep=""))
+        }
+        return(time)
+      }))
+      # Transform time variable
+      values["Time",] <- unlist(lapply(values["Time",],function(time){
+        hms <- unlist(strsplit(time,":"))
+        seconds <- as.numeric(hms[1])*3600 + as.numeric(hms[2])*60 + as.numeric(hms[3])
+      }))  
+    }
+     
+    # Prepare rownames
+    values <- as.data.frame(values,stringsAsFactors = F)
+    rownames(values) <- paste(rownames(values),curr_size,sep="_")
+    # Return
+    return(values)
+  })))
+  return(kern_values)
+})))
+y <- y[order(nchar(rownames(y)),rownames(y)),order(nchar(colnames(y)),colnames(y))]
+# # X: samples (y.col) parameters
+x <- data.frame(Kernel = unlist(lapply(colnames(y),function(coln){tail(unlist(strsplit(coln,"_")),1)})),
+                Language = unlist(lapply(colnames(y),function(coln){head(unlist(strsplit(coln,"_")),1)})))
+rownames(x) <- colnames(y)
+
+# Z : variables (y.row) parameters
+z <- data.frame(Language = unlist(lapply(rownames(y),function(coln){head(unlist(strsplit(coln,"_")),1)})),
+                Size = unlist(lapply(rownames(y),function(coln){tail(unlist(strsplit(coln,"_")),2)[1]})),
+                stringsAsFactors = FALSE)
+rownames(z) <- rownames(y)
+
+
+################################### ONLY FOR PAPER PLOTS
+# aux_names <- data.frame(From = c("Matlab","Ruby","Python"), 
+#                         To = c("Mat","Rub","Pyt"),
+#                         stringsAsFactors = FALSE)
+
+# # Substitute 
+# invisible(lapply(seq(nrow(aux_names)),function(i){
+#   rownames(x) <<- gsub(aux_names$From[i],aux_names$To[i],rownames(x))
+#   colnames(y) <<- gsub(aux_names$From[i],aux_names$To[i],colnames(y))
+# }))
+
+###################################
+
+message("X:")
+x
+message("Y:")
+y
+message("Z:")
+z
+
+```
+
+```{r plot_canvas, echo = FALSE, eval = TRUE}
+aux <- y
+tmp_zeros_i <- c()
+tmp_zeros_j <- c()
+invisible(lapply(seq(nrow(y)),function(i){
+  invisible(lapply(seq(ncol(y)),function(j){
+    if(!is.nan(y[i,j])){
+      if(y[i,j] == 0){
+        tmp_zeros_i <<- c(tmp_zeros_i,i)
+        tmp_zeros_j <<- c(tmp_zeros_j,j)  
+      }else{
+        aux[i,j] <<- -log10(as.numeric(y[i,j]))
+      }
+    }
+  }))
+}))
+
+################################################################## REMOVE THIS FOR FINAL VERSION
+
+# 
+variables_to_remove <- which(!z$Language %in% languages)
+#samples_to_remove <- which(x$Kernel %in% c("rf","vn0.1"))
+
+
+# Add also (as special cases, Matlab vs Matlab)
+# invisible(lapply(which(x$Language == "Matlab"),function(j){
+#   invisible(lapply(which(z$Language == "Matlab"),function(i){
+#     # Find maximum of it kernel
+#     max_kern <- max(as.numeric(unlist(aux[-variables_to_remove,which(x$Kernel == x$Kernel[j])])),na.rm=TRUE)
+#     aux[i,j] <<- max_kern
+#   }))
+# }))
+################################################################## REMOVE THIS FOR FINAL VERSION
+
+# Update zeros
+if(length(tmp_zeros_i)>0){
+  invisible(lapply(seq_along(tmp_zeros_i),function(k){
+    if(length(variables_to_remove) > 0){
+      max_kern <- max(as.numeric(unlist(aux[-variables_to_remove,which(x$Kernel == x$Kernel[tmp_zeros_j[k]])])),na.rm=TRUE)
+    }else{
+      max_kern <- max(as.numeric(unlist(aux[,which(x$Kernel == x$Kernel[tmp_zeros_j[k]])])),na.rm=TRUE)      
+    }
+    aux[tmp_zeros_i[k],tmp_zeros_j[k]] <<- max_kern
+  }))
+}
+
+
+
+
+###################### Plot circos
+circos_by_languages <- function(y,x,z, target_var_languages, title, ring_weight = 150){
+  canvasXpress(
+    data=y[which(z$Language %in% target_var_languages),],
+    smpAnnot=x,
+    varAnnot=z[which(z$Language %in% target_var_languages),],
+    graphType="Circular",
+    ringGraphType=as.list(rep("heatmap",nrow(x))),
+    ringGraphWeight=as.list(rep(ring_weight,nrow(x))),
+    segregateSamplesBy=list("Kernel"),
+    segregateVariablesBy=list("Language"),
+    smpOverlays=list("Kernel"),
+    # smpLabelRotate = 45,
+    title=title,
+  )
+}
+circos_by_languages(aux,x,z,languages,"Error (-log10) benchmark",ring_weight = 300)
+circos_by_languages(y,x,z,languages,"Error benchmark")
+circos_by_languages(y,x,z,c("Time"),"Times (s) benchmark")
+circos_by_languages(y,x,z,c("CPUs%"),"CPUs (%) benchmark")
+circos_by_languages(y,x,z,c("Memory"),"Memory (kb) benchmark")
+
+```

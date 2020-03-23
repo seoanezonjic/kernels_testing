@@ -1,0 +1,187 @@
+generate_rdm_matrix){
+	source ~soft_bio_267/initializes/init_R
+	export PATH=$srcPath:$PATH  # its MANDATORY to call this template with a variable called 'srcPath' whith src path
+	?
+	random_matrix.R -s $MSize -t 'D' -o 'rdm_double_sym_'$MSize'.mat'
+}
+
+##############################################
+#### PERFORM KERNEL FUNCTIONS
+##############################################
+
+
+launch_R_$kernels2exec){
+	echo [cpu]
+	source ~soft_bio_267/initializes/init_R
+	export PATH=$srcPath:$PATH  # its MANDATORY to call this template with a variable called 'srcPath' whith src path
+	echo -e "R_(*)_$MSize\tR\t$MSize\t(*)" > tracker
+	?
+	kernels.R -f generate_rdm_matrix)/'rdm_double_sym_'$MSize'.mat' -m $matrix_name -k (*) -o $output_name'_R'	
+	# Check
+	if [ ! -s $output_name'_R_'(*)'.mat' ]
+	then
+		echo "Results file R not generated"
+		exit 1
+	fi
+	# Add metrics
+	grep 'Percent\|Elapsed\|Maximum' process_data | tr -d '\t' | awk 'BEGIN{FS=": "}{print "R_(*)_$MSize\tR\t$MSize\t(*)\t"$1"\t"$2}' >> ../metrics
+}
+
+launch_Matlab_$kernels2exec){
+	echo [cpu]
+	module unload java
+	module load matlab
+	source_m=generate_rdm_matrix)/'rdm_double_sym_'$MSize'.mat'
+	matlab_output=$output_name'_Matlab_'(*)'.mat'
+	echo -e "Matlab_(*)_$MSize\tMatlab\t$MSize\t(*)" > tracker
+	?	
+	matlab -nodisplay -r "addpath('$matlab_kernels');kernels('(*)','$source_m','$matlab_output'); quit();"
+	# Check
+	if [ ! -s $matlab_output ]
+	then
+		echo "Results file Matlab not generated"
+		exit 1
+	fi
+	grep 'Percent\|Elapsed\|Maximum' process_data | tr -d '\t' | awk 'BEGIN{FS=": "}{print "Matlab_(*)_$MSize\tMatlab\t$MSize\t(*)\t"$1"\t"$2}' >> ../metrics
+}
+
+launch_Ruby_$kernels2exec){
+	echo [cpu]
+	source ~soft_bio_267/initializes/init_R
+	export PATH=$srcPath:$PATH  # its MANDATORY to call this template with a variable called 'srcPath' whith src path
+	LAYERS='m,-'
+	echo -e "Ruby_(*)_$MSize\tRuby\t$MSize\t(*)" > tracker
+	touch dummyNodesNames
+	ruby_outf=$output_name'_Ruby_'(*)
+	# From Matlab to plain_text 
+	matlab_formatter.R -f generate_rdm_matrix)/'rdm_double_sym_'$MSize'.mat' -o mat
+	source ~soft_bio_267/initializes/init_netanalyzer
+	# From plain text to binary NMatrix
+	text2binary_matrix.rb -i mat.tab -O 'bin' -t 'matrix' -o mat.bin 
+	?
+	NetAnalyzer.rb -i mat.bin -f bin -l $LAYERS -k (*) -u 'm' -n dummyNodesNames -K $ruby_outf
+	# Check
+	if [ ! -s $output_name'_Ruby_'(*) ]
+	then
+		echo "Results file Ruby not generated"
+		exit 1
+	fi
+	# From NMatrix to Plain text
+	text2binary_matrix.rb -i $ruby_outf -O 'mat' -t 'bin' -o $ruby_outf".tab" 
+	module unload python		
+	# From NMatrix to Matlab
+	matlab_formatter.R -f $ruby_outf".tab" -t -o $ruby_outf
+	grep 'Percent\|Elapsed\|Maximum' process_data | tr -d '\t' | awk 'BEGIN{FS=": "}{print "Ruby_(*)_$MSize\tRuby\t$MSize\t(*)\t"$1"\t"$2}' >> ../metrics
+}
+
+launch_Python_$kernels2exec){
+	echo [cpu]
+	#source ~soft_bio_267/initializes/init_python3
+	module load python/anaconda-4.7.12
+	export PATH=$srcPath:$PATH  # its MANDATORY to call this template with a variable called 'srcPath' whith src path
+	echo -e "Python_(*)_$MSize\tPython\t$MSize\t(*)" > tracker
+	?
+	kernels.py -f generate_rdm_matrix)/'rdm_double_sym_'$MSize'.mat' -m $matrix_name -k (*) -o $output_name'_Python'	
+	# Check
+	if [ ! -s $output_name'_Python_'(*)'.mat' ]
+	then
+		echo "Results file Python not generated"
+		exit 1
+	fi
+	grep 'Percent\|Elapsed\|Maximum' process_data | tr -d '\t' | awk 'BEGIN{FS=": "}{print "Python_(*)_$MSize\tPython\t$MSize\t(*)\t"$1"\t"$2}' >> ../metrics
+}
+
+##############################################
+#### PERFORM COMPARISSONS
+##############################################
+
+compare_R_$kernels2exec){
+	source ~soft_bio_267/initializes/init_R
+	export PATH=$srcPath:$PATH  # its MANDATORY to call this template with a variable called 'srcPath' whith src path
+	if [ ! -s !launch_R_*!/$output_name'_R_'(*)'.mat' ]
+	then
+		echo "Results file R not generated"
+		# exit 0 # Zero because I dont want flow_logger take it as running
+	else
+		?
+		compare_matrix.R -a !launch_Matlab_*!/$output_name'_Matlab_'(*)'.mat' -b !launch_R_*!/$output_name'_R_'(*)'.mat' -o (*)'_R_Matlab_err' # Matlab
+		compare_matrix.R -a !launch_R_*!/$output_name'_R_'(*)'.mat' -b !launch_R_*!/$output_name'_R_'(*)'.mat' -o (*)'_R_R_err'                # R
+		compare_matrix.R -a !launch_Ruby_*!/$output_name'_Ruby_'(*)'.mat' -b !launch_R_*!/$output_name'_R_'(*)'.mat' -o (*)'_R_Ruby_err'       # Ruby
+		compare_matrix.R -a !launch_Python_*!/$output_name'_Python_'(*)'.mat' -b !launch_R_*!/$output_name'_R_'(*)'.mat' -o (*)'_R_Python_err' # Python
+		# Update info
+		var_tracker=!launch_R_*!
+		var_tracker=`cat $var_tracker/tracker`
+		err_mat=`cat (*)_R_Matlab_err`
+		err_r=`cat (*)_R_R_err`
+		err_ruby=`cat (*)_R_Ruby_err`
+		err_python=`cat (*)_R_Python_err`
+		echo -e "$var_tracker\tMatlab_diff\t$err_mat" >> ../metrics
+		echo -e "$var_tracker\tR_diff\t$err_r" >> ../metrics
+		echo -e "$var_tracker\tRuby_diff\t$err_ruby" >> ../metrics
+		echo -e "$var_tracker\tPython_diff\t$err_python" >> ../metrics
+	fi
+}
+
+
+compare_Ruby_$kernels2exec){
+	source ~soft_bio_267/initializes/init_R
+	export PATH=$srcPath:$PATH  # its MANDATORY to call this template with a variable called 'srcPath' whith src path
+	if [ ! -s !launch_Ruby_*!/$output_name'_Ruby_'(*)'.mat' ]
+	then
+		echo "Results file Ruby not generated"
+		# exit 0 # Zero because I dont want flow_logger take it as running
+	else
+		?
+		compare_matrix.R -a !launch_Matlab_*!/$output_name'_Matlab_'(*)'.mat' -b !launch_Ruby_*!/$output_name'_Ruby_'(*)'.mat' -o (*)'_Ruby_Matlab_err' # Matlab
+		compare_matrix.R -a !launch_Ruby_*!/$output_name'_Ruby_'(*)'.mat' -b !launch_Ruby_*!/$output_name'_Ruby_'(*)'.mat' -o (*)'_Ruby_Ruby_err'       # Ruby
+		compare_matrix.R -a !launch_Python_*!/$output_name'_Python_'(*)'.mat' -b !launch_Ruby_*!/$output_name'_Ruby_'(*)'.mat' -o (*)'_Ruby_Python_err' # Python
+		# Update info
+		var_tracker=!launch_Ruby_*!
+		var_tracker=`cat $var_tracker/tracker`
+		err_mat=`cat (*)_Ruby_Matlab_err`
+		err_ruby=`cat (*)_Ruby_Ruby_err`
+		err_python=`cat (*)_Ruby_Python_err`
+		echo -e "$var_tracker\tMatlab_diff\t$err_mat" >> ../metrics
+		echo -e "$var_tracker\tRuby_diff\t$err_ruby" >> ../metrics
+		echo -e "$var_tracker\tPython_diff\t$err_python" >> ../metrics
+	fi
+}
+
+compare_Python_$kernels2exec){
+	source ~soft_bio_267/initializes/init_R
+	export PATH=$srcPath:$PATH  # its MANDATORY to call this template with a variable called 'srcPath' whith src path
+	if [ ! -s !launch_Python_*!/$output_name'_Python_'(*)'.mat' ]
+	then
+		echo "Results file Python not generated"
+		# exit 0 # Zero because I dont want flow_logger take it as running
+	else
+		?
+		compare_matrix.R -a !launch_Matlab_*!/$output_name'_Matlab_'(*)'.mat' -b !launch_Python_*!/$output_name'_Python_'(*)'.mat' -o (*)'_Python_Matlab_err' # Matlab
+		compare_matrix.R -a !launch_Python_*!/$output_name'_Python_'(*)'.mat' -b !launch_Python_*!/$output_name'_Python_'(*)'.mat' -o (*)'_Python_Python_err' # Python
+		# Update info
+		var_tracker=!launch_Python_*!
+		var_tracker=`cat $var_tracker/tracker`
+		err_mat=`cat (*)_Python_Matlab_err`
+		err_python=`cat (*)_Python_Python_err`
+		echo -e "$var_tracker\tMatlab_diff\t$err_mat" >> ../metrics
+		echo -e "$var_tracker\tPython_diff\t$err_python" >> ../metrics
+	fi
+}
+
+compare_Matlab_$kernels2exec){
+	source ~soft_bio_267/initializes/init_R
+	export PATH=$srcPath:$PATH  # its MANDATORY to call this template with a variable called 'srcPath' whith src path
+	if [ ! -s !launch_Matlab_*!/$output_name'_Matlab_'(*)'.mat' ]
+	then
+		echo "Results file Matlab not generated"
+		# exit 0 # Zero because I dont want flow_logger take it as running
+	else
+		?
+		compare_matrix.R -a !launch_Matlab_*!/$output_name'_Matlab_'(*)'.mat' -b !launch_Matlab_*!/$output_name'_Matlab_'(*)'.mat' -o (*)'_Matlab_Matlab_err' # Matlab
+		# Update info
+		var_tracker=!launch_Matlab_*!
+		var_tracker=`cat $var_tracker/tracker`
+		err_mat=`cat (*)_Matlab_Matlab_err`
+		echo -e "$var_tracker\tMatlab_diff\t$err_mat" >> ../metrics
+	fi
+}
